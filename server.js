@@ -8,6 +8,8 @@ const adminRoutes = require("./routes/adminRoutes");
 const tokenRoutes = require("./routes/tokenRoutes");
 const departmentRoutes = require("./routes/departmentRoutes");
 const authRoutes = require("./routes/authRoutes");
+const mongoose = require('mongoose');
+const User = require('./models/User');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -49,7 +51,17 @@ app.use((req, res) => {
   });
 });
 
-// Start Server
-app.listen(PORT, () =>
-  console.log(`Server running on http://localhost:${PORT}`)
-);
+mongoose.connect(process.env.MONGO_URI)
+  .then(async () => {
+    console.log('Connected to MongoDB');
+    
+    // Ensure indexes are properly set up
+    await User.syncIndexes();
+    
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+  });

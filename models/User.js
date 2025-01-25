@@ -62,6 +62,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// Explicitly define indexes
+userSchema.index({ cnic: 1 }, { unique: true });
+
 // Exclude password from being returned in API responses
 userSchema.methods.toJSON = function () {
   const user = this.toObject();
@@ -70,5 +73,12 @@ userSchema.methods.toJSON = function () {
 };
 
 const User = mongoose.model("User", userSchema);
+
+// Ensure indexes are created correctly
+User.syncIndexes().then(() => {
+  console.log('Indexes synchronized');
+}).catch(err => {
+  console.error('Error synchronizing indexes:', err);
+});
 
 module.exports = User;
