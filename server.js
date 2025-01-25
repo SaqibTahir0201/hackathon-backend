@@ -2,10 +2,12 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const connectDB = require("./config/db.js");
 const userRoutes = require("./routes/userRoutes");
-const uploadRoutes = require("./routes/upload");
+const adminRoutes = require("./routes/adminRoutes");
+const tokenRoutes = require("./routes/tokenRoutes");
+const departmentRoutes = require("./routes/departmentRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,20 +19,34 @@ app.use(bodyParser.json());
 // Connect to MongoDB
 connectDB();
 
-// Configure Cloudinary with environment variables
-cloudinary.config({
-  cloud_name: process.env.CLOUD_NAME,
-  api_key: process.env.API_KEY,
-  api_secret: process.env.API_SECRET,
-});
-
 // Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api", uploadRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/tokens", tokenRoutes);
+app.use("/api/departments", departmentRoutes);
 
 // Root Route
 app.get("/", (req, res) => {
   res.json({ message: "API is running..." });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    message: 'Internal Server Error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// Handle 404 routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
+  });
 });
 
 // Start Server

@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const Token = require('../models/Token');
 
 /**
  * Sign up a new user
@@ -35,9 +36,7 @@ const signUp = async (req, res) => {
     await newUser.save();
 
     // Generate token
-    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || "1h",
-    });
+    const token = generateToken(newUser);
 
     // Return user details and token
     res.status(201).json({
@@ -81,22 +80,17 @@ const login = async (req, res) => {
     }
 
     // Generate token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+    const token = generateToken(user);
 
     // Return user details and token
     res.json({
-      success: true,
+      message: "Login successful",
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
       },
-      token  // Include the token in the response
+      token,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -133,79 +127,109 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-/**
- * Manage user (create, update, delete)
- */
-const manageUser = async (req, res) => {
+// Generate a new token
+const generateToken = async (req, res) => {
     try {
-        const { action, userId, data } = req.body;
-        const isAdmin = req.user.role === 'admin';
-        
-        // If not admin, user can only update their own profile
-        if (!isAdmin && userId !== req.user.id) {
-            return res.status(403).json({ 
-                success: false, 
-                message: "Not authorized to modify other users" 
-            });
-        }
+        const { beneficiary, department, purpose } = req.body;
 
-        let user;
-        switch (action) {
-            case 'update':
-                // Remove sensitive fields if not admin
-                if (!isAdmin) {
-                    delete data.role;
-                    delete data.password;
-                }
-                
-                // If updating password, hash it
-                if (data.password) {
-                    const salt = await bcrypt.genSalt(10);
-                    data.password = await bcrypt.hash(data.password, salt);
-                }
-                
-                user = await User.findByIdAndUpdate(
-                    userId || req.user.id,
-                    data,
-                    { new: true }
-                ).select('-password');
-                break;
+        // Generate a unique token number (you can customize this logic)
+        const tokenNumber = `TKN${Date.now()}`;
 
-            case 'delete':
-                if (!isAdmin) {
-                    return res.status(403).json({ 
-                        success: false, 
-                        message: "Only admins can delete users" 
-                    });
-                }
-                user = await User.findByIdAndDelete(userId);
-                break;
+        const newToken = await Token.create({
+            tokenNumber,
+            beneficiary,
+            department,
+            purpose
+        });
 
-            default:
-                return res.status(400).json({ 
-                    success: false, 
-                    message: "Invalid action specified" 
-                });
-        }
+        res.status(201).json({
+            success: true,
+            data: newToken
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Error generating token'
+        });
+    }
+};
 
-        if (!user) {
-            return res.status(404).json({ 
-                success: false, 
-                message: "User not found" 
+// Get token details
+const getTokenDetails = async (req, res) => {
+    try {
+        const token = await Token.findById(req.params.tokenId)
+            .populate('beneficiary', 'name email')
+            .populate('department', 'name');
+
+        if (!token) {
+            return res.status(404).json({
+                success: false,
+                message: 'Token not found'
             });
         }
 
         res.status(200).json({
             success: true,
-            message: `User ${action}d successfully`,
-            data: user
+            data: token
         });
     } catch (error) {
-        console.error('Manage user error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: "Error managing user",
-            error: error.message 
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching token details'
+        });
+    }
+};
+
+// Update token status
+const updateTokenStatus = async (req, res) => {
+    try {
+        const { tokenId, status, remarks } = req.body;
+
+        const token = await Token.findByIdAndUpdate(
+            tokenId,
+            { status, remarks, updatedAt: Date.now() },
+            { new: true }
+        );
+
+        if (!token) {
+            return res.status(404).json({
+                success: false,
+                message: 'Token not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: token
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating token status'
+        });
+    }
+};
+
+// Get all tokens
+const getAllTokens = async (req, res) => {
+    try {
+        const tokens = await Token.find()
+            .populate('beneficiary', 'name email')
+            .populate('department', 'name')
+            .sort({ issuedAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            data: tokens
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching tokens'
         });
     }
 };
@@ -215,5 +239,8 @@ module.exports = {
   login,
   getProfile,
   getAllUsers,
-  manageUser
+  generateToken,
+  getTokenDetails,
+  updateTokenStatus,
+  getAllTokens
 };
