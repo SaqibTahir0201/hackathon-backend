@@ -58,43 +58,66 @@ module.exports = router;
 
 // Export functions instead of router
 const signUp = async (req, res) => {
-  const { name, email, password, imageUrl } = req.body;
-
   try {
+    const { name, email, password, imageUrl } = req.body;
+
+    // Add validation for required fields
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Please provide all required fields" });
+    }
+
+    // Check if JWT_SECRET exists
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not defined in environment variables");
+      return res.status(500).json({ error: "Server configuration error" });
+    }
+
+    // Check if the email already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ error: "Email already in use" });
     }
 
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Create new user
     const newUser = new User({
       name,
       email,
       password: hashedPassword,
-      imageUrl,
+      imageUrl: imageUrl || "", // Make imageUrl optional
     });
 
-    await newUser.save();
+    // Save user
+    const savedUser = await newUser.save();
 
-    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
+    // Generate token
+    const token = jwt.sign(
+      { id: savedUser._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
 
-    res.status(201).json({
+    // Send response
+    return res.status(201).json({
       message: "User created successfully",
       user: {
-        id: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
-        imageUrl: newUser.imageUrl,
+        id: savedUser._id,
+        name: savedUser.name,
+        email: savedUser.email,
+        imageUrl: savedUser.imageUrl,
       },
       token,
     });
+
   } catch (error) {
-    console.error("Signup failed:", error);
-    res.status(500).json({ error: "Server error" });
+    console.error("Signup error:", error); // Log the actual error
+    return res.status(500).json({ 
+      error: "Server error", 
+      details: error.message  // Include error details in development
+    });
   }
 };
 
