@@ -1,8 +1,15 @@
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
+  const mongoURI = process.env.MONGO_URI;
+
+  if (!mongoURI) {
+    console.error('MongoDB URI is not defined in environment variables.');
+    process.exit(1); // Exit the process if no Mongo URI is found
+  }
+
   try {
-    await mongoose.connect(process.env.MONGO_URI, {
+    await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
