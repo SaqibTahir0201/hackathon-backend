@@ -59,7 +59,7 @@ module.exports = router;
 // Export functions instead of router
 const signUp = async (req, res) => {
   try {
-    const { name, email, password, imageUrl } = req.body;
+    const { name, email, password } = req.body;
 
     // Add validation for required fields
     if (!name || !email || !password) {
@@ -87,7 +87,6 @@ const signUp = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      imageUrl: imageUrl || "", // Make imageUrl optional
     });
 
     // Save user
@@ -107,16 +106,15 @@ const signUp = async (req, res) => {
         id: savedUser._id,
         name: savedUser.name,
         email: savedUser.email,
-        imageUrl: savedUser.imageUrl,
       },
       token,
     });
 
   } catch (error) {
-    console.error("Signup error:", error); // Log the actual error
+    console.error("Signup error:", error);
     return res.status(500).json({ 
       error: "Server error", 
-      details: error.message  // Include error details in development
+      details: error.message
     });
   }
 };
@@ -144,7 +142,6 @@ const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        imageUrl: user.imageUrl,
       },
       token,
     });
