@@ -113,6 +113,15 @@ exports.login = async (req, res) => {
   try {
     const { userId, cnic } = req.body;
 
+    // Check if JWT_SECRET exists
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({
+        success: false,
+        message: 'Server configuration error'
+      });
+    }
+
     if (!userId || !cnic) {
       return res.status(400).json({
         success: false,
